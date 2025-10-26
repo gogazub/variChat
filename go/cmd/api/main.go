@@ -3,10 +3,8 @@ package main
 import "C"
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
-	"order-orchestration/go/internal/cgobridge"
 	"sync"
 )
 
@@ -25,13 +23,12 @@ func createOrder(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	result := cgobridge.Hello()
-	fmt.Println(result)
+
   http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request){ w.Write([]byte("ok")) })
   http.HandleFunc("/orders", createOrder)
   err := http.ListenAndServe(":8081", nil)
   if err != nil{
-	log.Printf(err.Error())
+	log.Println(err.Error())
   }
   
 }

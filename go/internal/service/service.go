@@ -4,12 +4,13 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"order-orchestration/go/internal/cgobridge"
-	"order-orchestration/go/internal/db"
+	"veriChat/go/internal/cgobridge"
+	"veriChat/go/internal/db"
+
 	"sync"
 	"time"
 
-	"github.com/go-redis/redis"
+	"github.com/redis/go-redis/v9"
 )
 
 // Config для сервиса

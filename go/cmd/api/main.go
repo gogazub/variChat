@@ -4,32 +4,46 @@ import (
 	"context"
 	"log"
 	"net/http"
-	"order-orchestration/go/internal/api"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"veriChat/go/internal/api"
+	"veriChat/go/internal/db"
+	"veriChat/go/internal/service"
 )
 
 func main() {
-    srv := api.NewServer(":8080")
+	if err := db.Init("user:pass@tcp(localhost:3306)/verichat?parseTime=true"); err != nil {
+		log.Fatal(err)
+	}
 
-    go func() {
-        if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-            log.Fatalf("listen: %s\n", err)
-        }
-    }()
+	db.InitRedis("localhost:6379", "", 0)
 
-    quit := make(chan os.Signal, 1)
-    signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-    <-quit
-    log.Println("Shutdown Server ...")
+	svc := service.NewMessageService(service.Config{
+		BatchSize:    64,
+		BatchTimeout: 300 * time.Millisecond,
+		LockTTL:      5 * time.Second,
+		RedisClient:  db.RedisClient,
+	})
 
-    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-    defer cancel()
-    if err := srv.Shutdown(ctx); err != nil {
-        log.Fatal("Server Shutdown:", err)
-    }
+	server := api.NewServer(":8080", svc)
 
-    log.Println("Server exiting")
+	go func() {
+		if err := server.Start(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("listen: %s\n", err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Println("Shutdown Server ...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_ = server.Shutdown(ctx)
+	svc.Shutdown(ctx)
+	log.Println("Server exiting")
 }

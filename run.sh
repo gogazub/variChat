@@ -1,3 +1,23 @@
 #!/bin/bash
-export LD_LIBRARY_PATH=$(pwd)/clib:$LD_LIBRARY_PATH
-go run go/cmd/api/main.go
+
+cd "$(dirname "$0")"
+
+echo "=== Проверка библиотеки ==="
+if [ ! -f "clib/build/libengine.so" ]; then
+    echo "Библиотека не найдена! Собираем..."
+    cd clib
+    mkdir -p build
+    cd build
+    cmake ..
+    make
+    cd ../..
+fi
+
+export LD_LIBRARY_PATH=$(pwd)/clib/build:$LD_LIBRARY_PATH
+export CGO_LDFLAGS="-L$(pwd)/clib/build -lengine -lcrypto"
+export CGO_CFLAGS="-I$(pwd)/clib"
+
+echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
+echo "CGO_LDFLAGS: $CGO_LDFLAGS"
+
+go run ./go/cmd/api/main.go

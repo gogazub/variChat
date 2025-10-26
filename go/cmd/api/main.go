@@ -1,34 +1,35 @@
 package main
 
-import "C"
 import (
-	"encoding/json"
+	"context"
 	"log"
 	"net/http"
-	"sync"
+	"order-orchestration/go/internal/api"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 )
-
-var (
-  mu sync.Mutex
-  store = map[string]map[string]interface{}{}
-)
-
-func createOrder(w http.ResponseWriter, r *http.Request) {
-  var o map[string]interface{}
-  json.NewDecoder(r.Body).Decode(&o)
-  id := "o1" // временно фикс
-  mu.Lock(); store[id]=o; mu.Unlock()
-  w.WriteHeader(201)
-  json.NewEncoder(w).Encode(map[string]string{"order_id": id})
-}
 
 func main() {
+    srv := api.NewServer(":8080")
 
-  http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request){ w.Write([]byte("ok")) })
-  http.HandleFunc("/orders", createOrder)
-  err := http.ListenAndServe(":8081", nil)
-  if err != nil{
-	log.Println(err.Error())
-  }
-  
+    go func() {
+        if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+            log.Fatalf("listen: %s\n", err)
+        }
+    }()
+
+    quit := make(chan os.Signal, 1)
+    signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+    <-quit
+    log.Println("Shutdown Server ...")
+
+    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+    defer cancel()
+    if err := srv.Shutdown(ctx); err != nil {
+        log.Fatal("Server Shutdown:", err)
+    }
+
+    log.Println("Server exiting")
 }

@@ -5,14 +5,18 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
+	"veriChat/go/internal/metrics"
 )
 
 func InsertMessage(ctx context.Context, msg *Message) (int64, error) {
+	start := time.Now()
     res, err := DB.ExecContext(ctx,
         `INSERT INTO messages (chat_id, user_id, payload, payload_hash, batch_id)
          VALUES (?, ?, ?, ?, ?)`,
         msg.ChatID, msg.UserID, msg.Payload, msg.PayloadHash, msg.BatchID,
     )
+	metrics.ObserveDB("InsertMessage", start, err)
     if err != nil {
         return 0, fmt.Errorf("insert message failed: %w", err)
     }
@@ -20,11 +24,13 @@ func InsertMessage(ctx context.Context, msg *Message) (int64, error) {
 }
 
 func InsertMerkleBatch(ctx context.Context, batch *MerkleBatch) (int64, error) {
+	start := time.Now()
     res, err := DB.ExecContext(ctx,
         `INSERT INTO merkle_batches (chat_id, root_hash, from_message_id, to_message_id)
          VALUES (?, ?, ?, ?)`,
         batch.ChatID, batch.RootHash, batch.FromMessageID, batch.ToMessageID,
     )
+	metrics.ObserveDB("InsertMerkleBatch", start,err)
     if err != nil {
         return 0, fmt.Errorf("insert merkle batch failed: %w", err)
     }
@@ -76,11 +82,13 @@ func GetMessagePayloads(ctx context.Context, ids []int64) ([][]byte, [][]byte, e
 
 // InsertMerkleBatchTx вставляет запись merkle_batches в рамках tx и возвращает batch_id.
 func InsertMerkleBatchTx(ctx context.Context, tx *sql.Tx, batch *MerkleBatch) (int64, error) {
+	start := time.Now()
 	res, err := tx.ExecContext(ctx,
 		`INSERT INTO merkle_batches (chat_id, root_hash, from_message_id, to_message_id)
          VALUES (?, ?, ?, ?)`,
 		batch.ChatID, batch.RootHash, batch.FromMessageID, batch.ToMessageID,
 	)
+	metrics.ObserveDB("InsertMerkleBatchTx", start,err)
 	if err != nil {
 		return 0, fmt.Errorf("InsertMerkleBatchTx failed: %w", err)
 	}
@@ -110,7 +118,9 @@ func UpdateMessagesBatchIDTx(ctx context.Context, tx *sql.Tx, messageIDs []int64
 	for _, id := range messageIDs {
 		args2 = append(args2, id)
 	}
+	start := time.Now()
 	_, err := tx.ExecContext(ctx, query, args2...)
+	metrics.ObserveDB("UpdateMessagesBatchIDTx", start,err)
 	if err != nil {
 		return fmt.Errorf("UpdateMessagesBatchIDTx failed: %w", err)
 	}

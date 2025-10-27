@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"veriChat/go/internal/cgobridge"
 	"veriChat/go/internal/db"
+	"veriChat/go/internal/metrics"
 
 	"sync"
 	"time"
@@ -66,6 +67,12 @@ func (s *MessageService) Shutdown(ctx context.Context) {
 // 4. mark active 
 // 5. len >= batchSize -> flush.
 func (s *MessageService) SubmitMessage(ctx context.Context, chatID, userID int64, payload []byte, idempKey string) (int64, error) {
+	start := time.Now()
+	err := error(nil)
+	defer func(){
+		metrics.IncMessagesProcessed()
+		metrics.ObserveBusiness("ProcessMessage", start, err)
+	}()
 	// 1) Idempotency
 	if idempKey != "" {
 		val, err := db.RedisClient.Get(ctx, "idemp:"+idempKey).Result()

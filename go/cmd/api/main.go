@@ -11,6 +11,7 @@ import (
 
 	"veriChat/go/internal/api"
 	"veriChat/go/internal/db"
+	"veriChat/go/internal/metrics"
 	"veriChat/go/internal/service"
 )
 
@@ -18,6 +19,8 @@ func main() {
 	if err := db.Init("user:pass@tcp(localhost:3306)/verichat?parseTime=true"); err != nil {
 		log.Fatal(err)
 	}
+	
+	metrics.Init("verichat")
 
 	db.InitRedis("localhost:6379", "", 0)
 

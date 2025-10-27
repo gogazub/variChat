@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"time"
+	"veriChat/go/internal/metrics"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -20,12 +21,18 @@ func InitRedis(addr, pass string, db int) {
 
 // SetIdempotency сохраняем idempotency key
 func SetIdempotency(ctx context.Context, key string, messageID int64, ttl time.Duration) error {
-    return RedisClient.Set(ctx, "idemp:"+key, messageID, ttl).Err()
+    start := time.Now()
+    err := RedisClient.Set(ctx, "idemp:"+key, messageID, ttl).Err()
+    metrics.ObserveRedis("SetIdempotency", start,err)
+    return err
+
 }
 
 // GetIdempotency проверка
 func GetIdempotency(ctx context.Context, key string) (int64, bool, error) {
+    start := time.Now()
     val, err := RedisClient.Get(ctx, "idemp:"+key).Result()
+    metrics.ObserveRedis("GetIdempotency", start,err)
     if err == redis.Nil {
         return 0, false, nil
     }
@@ -39,10 +46,16 @@ func GetIdempotency(ctx context.Context, key string) (int64, bool, error) {
 
 // SetLatestRoot
 func SetLatestRoot(ctx context.Context, chatID int64, root []byte) error {
-    return RedisClient.Set(ctx, fmt.Sprintf("chat:%d:latest_root", chatID), root, 0).Err()
+    start := time.Now()
+    err := RedisClient.Set(ctx, fmt.Sprintf("chat:%d:latest_root", chatID), root, 0).Err()
+    metrics.ObserveRedis("SetLatestRoot",start,err)
+    return  err
 }
 
 // GetLatestRoot
 func GetLatestRoot(ctx context.Context, chatID int64) ([]byte, error) {
-    return RedisClient.Get(ctx, fmt.Sprintf("chat:%d:latest_root", chatID)).Bytes()
+    start := time.Now()
+    arr, err := RedisClient.Get(ctx, fmt.Sprintf("chat:%d:latest_root", chatID)).Bytes()
+    metrics.ObserveRedis("GetLatestRoot", start,err)
+    return arr,err
 }

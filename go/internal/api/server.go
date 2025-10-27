@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"veriChat/go/internal/metrics"
 	"veriChat/go/internal/service"
 )
 
@@ -17,9 +18,9 @@ func NewServer(addr string, svc *service.MessageService) *Server {
 	mux := http.NewServeMux()
 
 	// Handlers
-	mux.HandleFunc("/messages", makePostMessageHandler(svc))
-	mux.HandleFunc("/merkle", PostMerkleHandler)
-
+	mux.Handle("/metrics", metrics.MetricsHandler())
+	mux.Handle("/messages", metrics.InstrumentHandler(makePostMessageHandler(svc)))
+	mux.Handle("/merkle", metrics.InstrumentHandler(http.HandlerFunc(PostMerkleHandler)))
 	srv := &http.Server{
 		Addr:    addr,
 		Handler: mux,
